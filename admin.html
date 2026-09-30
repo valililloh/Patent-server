@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Patent — Admin panel</title>
+<style>
+  :root{
+    --bg:#0F1420; --card:#18202E; --card2:#1E2838; --line:#2B3648; --accent:#3B82F6;
+    --text:#EDF1F7; --muted:#8593A8; --ok:#25B36B; --bad:#E0524A; --amber:#E8A33D;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;background:var(--bg);color:var(--text);min-height:100vh;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  body{padding:16px 16px 40px;}
+  .wrap{max-width:560px;margin:0 auto;}
+  button{font-family:inherit;cursor:pointer;}
+  input{font-family:inherit;}
+
+  /* Login */
+  .login{padding-top:60px;text-align:center;}
+  .logo{font-size:48px;margin-bottom:8px;}
+  h1{font-size:23px;font-weight:800;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:26px;}
+  .inp{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;
+    color:var(--text);font-size:17px;padding:14px;margin-bottom:10px;}
+  .inp:focus{outline:none;border-color:var(--accent);}
+  .btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:12px;
+    font-size:17px;font-weight:800;padding:14px;min-height:52px;}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);}
+  .btn:disabled{opacity:.6;}
+  .err{color:var(--bad);font-size:14px;min-height:20px;margin-bottom:8px;}
+
+  /* Dashboard */
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .top h1{font-size:20px;}
+  .lg{background:transparent;color:var(--muted);border:1px solid var(--line);
+    border-radius:10px;font-size:13px;font-weight:700;padding:8px 12px;}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 10px;text-align:center;}
+  .stat .n{font-size:28px;font-weight:800;}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:3px;}
+  .stat.acc{background:var(--accent);border-color:var(--accent);} .stat.acc .l{color:#dbe9ff;}
+  .sect{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.6px;
+    text-transform:uppercase;margin:22px 0 10px;}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;}
+  /* Chart */
+  .chart{display:flex;align-items:flex-end;gap:4px;height:120px;margin-bottom:6px;}
+  .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;}
+  .col .bar{width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px;transition:height .3s;}
+  .col .bar.z{background:var(--line);}
+  .xlab{display:flex;gap:4px;} .xlab span{flex:1;text-align:center;font-size:10px;color:var(--muted);}
+  /* Rows */
+  .row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row .name{font-size:14px;min-width:120px;}
+  .row .track{flex:1;height:8px;background:var(--card2);border-radius:4px;overflow:hidden;}
+  .row .fill{height:100%;background:var(--amber);border-radius:4px;}
+  .row .val{font-size:14px;font-weight:700;min-width:32px;text-align:right;}
+  /* Search */
+  .srow{display:flex;gap:8px;margin-bottom:10px;}
+  .srow .inp{margin-bottom:0;}
+  .srow .btn{width:auto;padding:0 18px;}
+  .ucard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;}
+  .uline{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px;}
+  .uline:last-child{border-bottom:none;} .uline .k{color:var(--muted);}
+  .none{color:var(--muted);text-align:center;padding:18px;font-size:14px;}
+  .hide{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- LOGIN -->
+  <div id="login" class="login">
+    <div class="logo">🔒</div>
+    <h1>Admin panel</h1>
+    <div class="sub">Patent ilova · boshqaruv</div>
+    <div class="err" id="lerr"></div>
+    <input class="inp" id="pass" type="password" placeholder="Parol" autocomplete="current-password">
+    <button class="btn" id="enter">Kirish</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dash" class="hide">
+    <div class="top">
+      <h1>📊 Statistika</h1>
+      <div>
+        <button class="lg" id="refresh">↻</button>
+        <button class="lg" id="logout">Chiqish</button>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="stat acc"><div class="n" id="s-total">0</div><div class="l">Umumiy</div></div>
+      <div class="stat"><div class="n" id="s-kun">0</div><div class="l">Bugun</div></div>
+      <div class="stat"><div class="n" id="s-oy">0</div><div class="l">Bu oy</div></div>
+    </div>
+
+    <div class="sect">Oxirgi 14 kun</div>
+    <div class="panel">
+      <div class="chart" id="chart"></div>
+      <div class="xlab" id="xlab"></div>
+    </div>
+
+    <div class="sect">Davlat bo'yicha</div>
+    <div class="panel" id="byCountry"></div>
+
+    <div class="sect">Til bo'yicha</div>
+    <div class="panel" id="byLang"></div>
+
+    <div class="sect">Foydalanuvchi qidirish (ID)</div>
+    <div class="srow">
+      <input class="inp" id="sid" placeholder="masalan: sh63bd" autocomplete="off">
+      <button class="btn" id="find">Qidirish</button>
+    </div>
+    <div id="uresult"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var token = sessionStorage.getItem("adm_token") || "";
+  var $ = function(id){ return document.getElementById(id); };
+
+  function api(path, opts){
+    opts = opts || {};
+    opts.headers = opts.headers || {};
+    if(token) opts.headers["Authorization"] = "Bearer " + token;
+    return fetch(path, opts).then(function(r){ return r.json().then(function(j){ return {status:r.status, j:j}; }); });
+  }
+
+  // ===== Login =====
+  function doLogin(){
+    var pass = $("pass").value;
+    if(!pass){ $("lerr").textContent = "Parolni kiriting"; return; }
+    $("enter").disabled = true; $("lerr").textContent = "";
+    fetch("/api/login", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ pass: pass }) })
+      .then(function(r){ return r.json().then(function(j){ return {status:r.status, j:j}; }); })
+      .then(function(res){
+        $("enter").disabled = false;
+        if(res.j && res.j.ok && res.j.token){
+          token = res.j.token; sessionStorage.setItem("adm_token", token);
+          showDash();
+        } else {
+          $("lerr").textContent = (res.j && res.j.xato) || "Xatolik";
+        }
+      }).catch(function(){ $("enter").disabled = false; $("lerr").textContent = "Ulanmadi"; });
+  }
+  $("enter").onclick = doLogin;
+  $("pass").onkeydown = function(e){ if(e.key === "Enter") doLogin(); };
+
+  // ===== Dashboard =====
+  function showLogin(){ $("dash").classList.add("hide"); $("login").classList.remove("hide"); }
+  function showDash(){
+    $("login").classList.add("hide"); $("dash").classList.remove("hide");
+    loadStats();
+  }
+  $("logout").onclick = function(){ token=""; sessionStorage.removeItem("adm_token"); $("pass").value=""; showLogin(); };
+  $("refresh").onclick = loadStats;
+
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  function loadStats(){
+    api("/api/stats").then(function(res){
+      if(res.status === 401){ token=""; sessionStorage.removeItem("adm_token"); showLogin(); return; }
+      if(!res.j || !res.j.ok) return;
+      render(res.j.stats);
+    }).catch(function(){});
+  }
+
+  function render(st){
+    $("s-total").textContent = st.total;
+    $("s-kun").textContent = st.kun;
+    $("s-oy").textContent = st.oy;
+
+    // Chart
+    var max = 1; st.days.forEach(function(d){ if(d.count>max) max=d.count; });
+    $("chart").innerHTML = st.days.map(function(d){
+      var h = Math.round(d.count/max*100);
+      return '<div class="col" title="'+d.day+': '+d.count+'"><div class="bar'+(d.count?'':' z')+'" style="height:'+(d.count?h:2)+'%"></div></div>';
+    }).join("");
+    $("xlab").innerHTML = st.days.map(function(d,i){
+      var lab = (i%2===0) ? d.day.slice(8) : "";   // har 2 kunda kun raqami
+      return '<span>'+lab+'</span>';
+    }).join("");
+
+    $("byCountry").innerHTML = rowsHTML(st.byCountry, st.total, "var(--amber)");
+    $("byLang").innerHTML    = rowsHTML(st.byLang, st.total, "var(--accent)");
+  }
+
+  function rowsHTML(obj, total, color){
+    var keys = Object.keys(obj).sort(function(a,b){ return obj[b]-obj[a]; });
+    if(!keys.length) return '<div class="none">Hozircha ma\'lumot yo\'q</div>';
+    return keys.map(function(k){
+      var v = obj[k], pct = total ? Math.round(v/total*100) : 0;
+      return '<div class="row"><div class="name">'+esc(k)+'</div>'+
+        '<div class="track"><div class="fill" style="width:'+pct+'%;background:'+color+'"></div></div>'+
+        '<div class="val">'+v+'</div></div>';
+    }).join("");
+  }
+
+  // ===== Qidirish =====
+  function findUser(){
+    var id = $("sid").value.trim();
+    if(!id){ return; }
+    $("uresult").innerHTML = '<div class="none">Qidirilyapti…</div>';
+    api("/api/user?id=" + encodeURIComponent(id)).then(function(res){
+      if(res.status === 401){ token=""; showLogin(); return; }
+      if(!res.j || !res.j.ok){ $("uresult").innerHTML = '<div class="none">Xatolik</div>'; return; }
+      if(!res.j.topildi){ $("uresult").innerHTML = '<div class="none">❌ Bunday ID topilmadi</div>'; return; }
+      var u = res.j.user;
+      $("uresult").innerHTML = '<div class="ucard">'+
+        line("ID", u.id) + line("Davlat", u.mamlakat) + line("Til", u.til) +
+        line("Ro'yxatdan o'tgan", u.sana) + line("Vaqt", u.vaqt) + '</div>';
+    }).catch(function(){ $("uresult").innerHTML = '<div class="none">Ulanmadi</div>'; });
+  }
+  function line(k,v){ return '<div class="uline"><span class="k">'+esc(k)+'</span><span>'+esc(v)+'</span></div>'; }
+  $("find").onclick = findUser;
+  $("sid").onkeydown = function(e){ if(e.key === "Enter") findUser(); };
+
+  // ===== Boshlash =====
+  if(token) showDash(); else showLogin();
+})();
+</script>
+</body>
+</html>
