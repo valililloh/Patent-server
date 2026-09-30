@@ -65,6 +65,10 @@
   .uline{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px;}
   .uline:last-child{border-bottom:none;} .uline .k{color:var(--muted);}
   .none{color:var(--muted);text-align:center;padding:18px;font-size:14px;}
+  .lbl{font-size:13px;color:var(--muted);margin:10px 0 5px;}
+  textarea.inp{min-height:70px;resize:vertical;}
+  .ok-msg{color:var(--ok);font-size:14px;min-height:20px;margin-top:6px;}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4;}
   .hide{display:none;}
 </style>
 </head>
@@ -115,6 +119,21 @@
       <button class="btn" id="find">Qidirish</button>
     </div>
     <div id="uresult"></div>
+
+    <div class="sect">🔄 Majburiy yangilash</div>
+    <div class="panel">
+      <div class="lbl">Minimal versiya (shundan past ilovalar bloklanadi)</div>
+      <input class="inp" id="c-min" type="number" min="1" inputmode="numeric">
+      <div class="lbl">Oxirgi versiya</div>
+      <input class="inp" id="c-latest" type="number" min="1" inputmode="numeric">
+      <div class="lbl">RuStore havolasi (yangilash tugmasi shu yerga o'tadi)</div>
+      <input class="inp" id="c-url" placeholder="https://apps.rustore.ru/app/...">
+      <div class="lbl">Xabar (ixtiyoriy — bo'sh bo'lsa standart matn chiqadi)</div>
+      <textarea class="inp" id="c-msg" placeholder="Masalan: Yangi versiya chiqdi, yangilang"></textarea>
+      <button class="btn" id="c-save">Saqlash</button>
+      <div class="ok-msg" id="c-status"></div>
+      <div class="hint">Yangi versiya chiqarganda: APK'ni RuStore'ga yuklang → shu yerda «Minimal versiya»ni yangi raqamga ko'taring → eski ilovalar avtomatik bloklanadi.</div>
+    </div>
   </div>
 
 </div>
@@ -158,6 +177,7 @@
   function showDash(){
     $("login").classList.add("hide"); $("dash").classList.remove("hide");
     loadStats();
+    loadConfig();
   }
   $("logout").onclick = function(){ token=""; sessionStorage.removeItem("adm_token"); $("pass").value=""; showLogin(); };
   $("refresh").onclick = loadStats;
@@ -221,6 +241,34 @@
   function line(k,v){ return '<div class="uline"><span class="k">'+esc(k)+'</span><span>'+esc(v)+'</span></div>'; }
   $("find").onclick = findUser;
   $("sid").onkeydown = function(e){ if(e.key === "Enter") findUser(); };
+
+  // ===== Majburiy yangilash =====
+  function loadConfig(){
+    api("/api/config").then(function(res){
+      if(res.status === 401){ token=""; showLogin(); return; }
+      if(!res.j || !res.j.ok) return;
+      var c = res.j.config || {};
+      $("c-min").value = c.min || 1;
+      $("c-latest").value = c.latest || 1;
+      $("c-url").value = c.url || "";
+      $("c-msg").value = c.msg || "";
+    }).catch(function(){});
+  }
+  $("c-save").onclick = function(){
+    var body = {
+      min: parseInt($("c-min").value, 10) || 1,
+      latest: parseInt($("c-latest").value, 10) || 1,
+      url: $("c-url").value.trim(),
+      msg: $("c-msg").value
+    };
+    $("c-status").textContent = "Saqlanyapti…";
+    api("/api/config", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) })
+      .then(function(res){
+        if(res.status === 401){ token=""; showLogin(); return; }
+        $("c-status").textContent = (res.j && res.j.ok) ? "✅ Saqlandi" : "Xatolik";
+        setTimeout(function(){ $("c-status").textContent = ""; }, 2500);
+      }).catch(function(){ $("c-status").textContent = "Ulanmadi"; });
+  };
 
   // ===== Boshlash =====
   if(token) showDash(); else showLogin();

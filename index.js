@@ -41,6 +41,14 @@ function save() {
   try { fs.writeFileSync(DATA_FILE, JSON.stringify(users)); } catch (e) {}
 }
 
+// ====== Versiya sozlamasi (majburiy yangilash) ======
+const CONFIG_FILE = path.join(DATA_DIR, "config.json");
+let config = { min: 1, latest: 1, url: "", msg: "" };
+try {
+  if (fs.existsSync(CONFIG_FILE)) config = Object.assign(config, JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8") || "{}"));
+} catch (e) {}
+function saveConfig() { try { fs.writeFileSync(CONFIG_FILE, JSON.stringify(config)); } catch (e) {} }
+
 // Sana yordamchilari (Moscow vaqti bo'yicha)
 function ymd(ts) { return new Date(ts).toLocaleDateString("en-CA", { timeZone: TZ }); } // YYYY-MM-DD
 function ym(ts)  { return ymd(ts).slice(0, 7); } // YYYY-MM
@@ -151,6 +159,25 @@ const server = http.createServer(async (req, res) => {
       id: rec.uid, mamlakat: rec.mamlakat || "—", til: langLabel(rec.til),
       sana: ymd(rec.ts), vaqt: new Date(rec.ts).toLocaleString("ru-RU", { timeZone: TZ })
     }});
+  }
+
+  // --- Ilova uchun ochiq config (versiya tekshiruvi) ---
+  if (p === "/config" && req.method === "GET") { return json(res, 200, config); }
+
+  // --- Admin: config o'qish/yozish ---
+  if (p === "/api/config" && req.method === "GET") {
+    if (!validToken(req, u)) return json(res, 401, { ok: false });
+    return json(res, 200, { ok: true, config: config });
+  }
+  if (p === "/api/config" && req.method === "POST") {
+    if (!validToken(req, u)) return json(res, 401, { ok: false });
+    const d = await readBody(req);
+    if (typeof d.min === "number" && isFinite(d.min)) config.min = Math.max(1, Math.floor(d.min));
+    if (typeof d.latest === "number" && isFinite(d.latest)) config.latest = Math.max(1, Math.floor(d.latest));
+    if (typeof d.url === "string") config.url = d.url.trim();
+    if (typeof d.msg === "string") config.msg = d.msg;
+    saveConfig();
+    return json(res, 200, { ok: true, config: config });
   }
 
   // --- Ilovadan ma'lumot (POST /) ---
