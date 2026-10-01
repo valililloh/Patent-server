@@ -49,6 +49,44 @@ try {
 } catch (e) {}
 function saveConfig() { try { fs.writeFileSync(CONFIG_FILE, JSON.stringify(config)); } catch (e) {} }
 
+// ====== Maxfiylik siyosati sahifasi (RuStore talab qiladi) ======
+const PRIVACY_HTML = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Политика конфиденциальности — Patent imtihoni</title>
+<style>body{margin:0;background:#0F1420;color:#EDF1F7;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6}
+.w{max-width:720px;margin:0 auto;padding:28px 18px 60px}h1{font-size:24px}h2{font-size:18px;margin-top:26px;color:#9FB3CC}
+a{color:#3B82F6}p,li{color:#CDD6E4;font-size:15px}.muted{color:#8593A8;font-size:13px}</style></head>
+<body><div class="w">
+<h1>Политика конфиденциальности</h1>
+<p class="muted">Приложение «Patent imtihoni» · Обновлено: 01.10.2026</p>
+
+<p>Приложение «Patent imtihoni» помогает трудовым мигрантам готовиться к комплексному экзамену (патент) на родном языке. Мы уважаем вашу конфиденциальность и собираем минимум данных.</p>
+
+<h2>Какие данные мы обрабатываем</h2>
+<ul>
+<li><b>Анонимный идентификатор.</b> При первом запуске приложение создаёт случайный код (например, «a7f3k9»), не связанный с вашей личностью. Он один раз отправляется на наш сервер только для подсчёта числа пользователей.</li>
+<li><b>Язык и страна кода.</b> Вместе с идентификатором передаётся выбранный язык интерфейса — для статистики.</li>
+</ul>
+
+<h2>Какие данные мы НЕ собираем</h2>
+<ul>
+<li>Мы не собираем номер телефона, имя, e-mail, точное местоположение, контакты, фотографии или другие личные данные.</li>
+<li>Нет рекламы и сторонних трекеров.</li>
+<li>Результаты тестов и ваши ошибки хранятся только на вашем устройстве и никуда не отправляются.</li>
+</ul>
+
+<h2>Разрешения</h2>
+<p>Приложению нужен доступ в Интернет только для загрузки аудиозаданий и проверки обновлений. Приложение работает и офлайн.</p>
+
+<h2>Хранение данных</h2>
+<p>Анонимный идентификатор хранится на нашем сервере исключительно для подсчёта аудитории. Он не передаётся третьим лицам.</p>
+
+<h2>Контакты</h2>
+<p>По любым вопросам: <a href="mailto:vkholmirzaev@gmail.com">vkholmirzaev@gmail.com</a><br>Разработчики: Kholmirzaev &amp; Qodirov</p>
+
+<p class="muted">Используя приложение, вы соглашаетесь с настоящей политикой.</p>
+</div></body></html>`;
+
 // Sana yordamchilari (Moscow vaqti bo'yicha)
 function ymd(ts) { return new Date(ts).toLocaleDateString("en-CA", { timeZone: TZ }); } // YYYY-MM-DD
 function ym(ts)  { return ymd(ts).slice(0, 7); } // YYYY-MM
@@ -159,6 +197,13 @@ const server = http.createServer(async (req, res) => {
       id: rec.uid, mamlakat: rec.mamlakat || "—", til: langLabel(rec.til),
       sana: ymd(rec.ts), vaqt: new Date(rec.ts).toLocaleString("ru-RU", { timeZone: TZ })
     }});
+  }
+
+  // --- Maxfiylik siyosati (RuStore uchun) ---
+  if (req.method === "GET" && (p === "/privacy" || p === "/privacy/")) {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(PRIVACY_HTML);
+    return;
   }
 
   // --- Ilova uchun ochiq config (versiya tekshiruvi) ---
