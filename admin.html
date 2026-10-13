@@ -49,6 +49,7 @@
   .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;}
   .col .bar{width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px;transition:height .3s;}
   .col .bar.z{background:var(--line);}
+  .col .bar.g{background:var(--ok);} .col .bar.g.z{background:var(--line);}
   .xlab{display:flex;gap:4px;} .xlab span{flex:1;text-align:center;font-size:10px;color:var(--muted);}
   /* Rows */
   .row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
@@ -105,6 +106,21 @@
     <div class="panel">
       <div class="chart" id="chart"></div>
       <div class="xlab" id="xlab"></div>
+    </div>
+
+    <div class="sect">⏱ Bugun foydalanish vaqti</div>
+    <div class="cards">
+      <div class="stat"><div class="n" id="u-sec">0</div><div class="l">Jami (soat)</div></div>
+      <div class="stat"><div class="n" id="u-act">0</div><div class="l">Faol</div></div>
+      <div class="stat"><div class="n" id="u-avg">0</div><div class="l">O'rtacha (daq)</div></div>
+    </div>
+
+    <div class="sect">Oxirgi 14 kun — foydalanish (soat)</div>
+    <div class="panel">
+      <div class="chart" id="uchart"></div>
+      <div class="xlab" id="uxlab"></div>
+      <div class="hint">Oflayn ishlatganlar vaqti ular internetga ulanganda tegishli kunga qo'shiladi — shuning uchun o'tgan kunlar ham keyinroq o'sishi mumkin. Ustunga bosing — tafsilot.</div>
+      <div class="hint" id="uinfo"></div>
     </div>
 
     <div class="sect">Davlat bo'yicha</div>
@@ -208,8 +224,34 @@
       return '<span>'+lab+'</span>';
     }).join("");
 
+    // Foydalanish vaqti
+    var ut = st.usageToday || {sec:0, active:0, avg:0};
+    $("u-sec").textContent = hours(ut.sec);
+    $("u-act").textContent = ut.active;
+    $("u-avg").textContent = Math.round(ut.avg/60);
+    var umax = 1; st.days.forEach(function(d){ if((d.sec||0)>umax) umax=d.sec; });
+    $("uchart").innerHTML = st.days.map(function(d,i){
+      var s = d.sec||0, h = Math.round(s/umax*100);
+      return '<div class="col" data-i="'+i+'" title="'+d.day+': '+dur(s)+'"><div class="bar g'+(s?'':' z')+'" style="height:'+(s?h:2)+'%"></div></div>';
+    }).join("");
+    $("uxlab").innerHTML = $("xlab").innerHTML;
+    $("uinfo").textContent = "";
+    Array.prototype.forEach.call($("uchart").children, function(el){
+      el.onclick = function(){
+        var d = st.days[+el.getAttribute("data-i")];
+        $("uinfo").textContent = d.day + ": " + dur(d.sec||0) + " · faol: " + (d.active||0) +
+          (d.active ? " · o'rtacha: " + dur(Math.round(d.sec/d.active)) : "");
+      };
+    });
+
     $("byCountry").innerHTML = rowsHTML(st.byCountry, st.total, "var(--amber)");
     $("byLang").innerHTML    = rowsHTML(st.byLang, st.total, "var(--accent)");
+  }
+
+  function hours(sec){ var h = (sec||0)/3600; return h >= 10 ? Math.round(h) : (Math.round(h*10)/10); }
+  function dur(sec){
+    var m = Math.round((sec||0)/60), h = Math.floor(m/60), mm = m%60;
+    return h ? h + " soat" + (mm ? " " + mm + " daq" : "") : mm + " daq";
   }
 
   function rowsHTML(obj, total, color){
@@ -235,7 +277,9 @@
       var u = res.j.user;
       $("uresult").innerHTML = '<div class="ucard">'+
         line("ID", u.id) + line("Davlat", u.mamlakat) + line("Til", u.til) +
-        line("Ro'yxatdan o'tgan", u.sana) + line("Vaqt", u.vaqt) + '</div>';
+        line("Ro'yxatdan o'tgan", u.sana) + line("Vaqt", u.vaqt) +
+        line("Bugun ishlatgan", u.bugun || "—") + line("Jami ishlatgan", u.jami || "—") +
+        line("Faol kunlar", u.faolKun || 0) + line("Oxirgi faollik", u.oxirgi || "—") + '</div>';
     }).catch(function(){ $("uresult").innerHTML = '<div class="none">Ulanmadi</div>'; });
   }
   function line(k,v){ return '<div class="uline"><span class="k">'+esc(k)+'</span><span>'+esc(v)+'</span></div>'; }

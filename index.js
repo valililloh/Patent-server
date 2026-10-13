@@ -3,8 +3,10 @@
 // Vazifalari:
 //   1) Ilovadan kelgan (anonim ID) ma'lumotni yig'adi va adminlarga (botga) xabar beradi
 //   2) Har yangi foydalanuvchini faylga saqlaydi (uid bo'yicha takrorlanmaydi)
-//   3) Bot buyruqlari: /start /kun /oy /barcha
+//   3) Bot buyruqlari: /start /kun /oy /barcha /vaqt
 //   4) Admin veb-panel: /admin  (parol bilan) — statistika + foydalanuvchi qidirish
+//   5) Foydalanish vaqti: ilova kunlik soniyalarni yuboradi (POST /usage).
+//      Ilova oflayn bo'lsa telefonda yig'adi, onlayn bo'lganda eski kunlarni ham yuboradi.
 //
 // Railway → Variables:
 //   BOT_TOKEN   — bot tokeni (@BotFather)
@@ -41,6 +43,59 @@ function save() {
   try { fs.writeFileSync(DATA_FILE, JSON.stringify(users)); } catch (e) {}
 }
 
+// ====== Foydalanish vaqti ======
+// usage = { "YYYY-MM-DD": { uid: soniya } } — kun ilova (telefon) vaqti bo'yicha.
+// Ilova har kun uchun JAMI soniyani yuboradi, server eng kattasini oladi —
+// shuning uchun bir xil ma'lumot qayta kelsa ham ikki marta qo'shilmaydi.
+const USAGE_FILE = path.join(DATA_DIR, "usage.json");
+const USAGE_KEEP_DAYS = 400;   // shundan eski kunlar o'chiriladi
+const USAGE_MAX_AGE = 60;      // ilova necha kun oldingi ma'lumotni yubora oladi
+let usage = {};
+try {
+  if (fs.existsSync(USAGE_FILE)) usage = JSON.parse(fs.readFileSync(USAGE_FILE, "utf8") || "{}") || {};
+} catch (e) { usage = {}; }
+let _usageTimer = null;
+function saveUsage() {
+  if (_usageTimer) return;
+  _usageTimer = setTimeout(() => {
+    _usageTimer = null;
+    try { fs.writeFileSync(USAGE_FILE, JSON.stringify(usage)); } catch (e) {}
+  }, 2000);
+}
+function pruneUsage() {
+  const min = ymd(Date.now() - USAGE_KEEP_DAYS * 86400000);
+  Object.keys(usage).forEach((d) => { if (d < min) delete usage[d]; });
+}
+// Ilovadan kelgan {uid, days:{"YYYY-MM-DD": soniya}} ni qabul qiladi
+function addUsage(uid, days) {
+  if (!days || typeof days !== "object") return 0;
+  const now = Date.now();
+  const minDay = ymd(now - USAGE_MAX_AGE * 86400000), maxDay = ymd(now + 86400000);
+  let n = 0;
+  Object.keys(days).slice(0, 90).forEach((d) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d < minDay || d > maxDay) return;
+    const sec = Math.floor(Number(days[d]));
+    if (!isFinite(sec) || sec <= 0) return;
+    const day = usage[d] || (usage[d] = {});
+    const v = Math.min(sec, 86400);
+    if (!(day[uid] >= v)) { day[uid] = v; n++; }
+  });
+  if (n) { pruneUsage(); saveUsage(); }
+  return n;
+}
+function usageOfDay(d) {
+  const day = usage[d] || {};
+  let sec = 0, active = 0;
+  Object.keys(day).forEach((k) => { sec += day[k]; active++; });
+  return { sec, active };
+}
+// 5400 -> "1 soat 30 daq"
+function fmtDur(sec) {
+  const m = Math.round((sec || 0) / 60), h = Math.floor(m / 60), mm = m % 60;
+  if (!h) return mm + " daq";
+  return h + " soat" + (mm ? " " + mm + " daq" : "");
+}
+
 // ====== Versiya sozlamasi (majburiy yangilash) ======
 const CONFIG_FILE = path.join(DATA_DIR, "config.json");
 let config = { min: 1, latest: 1, url: "", msg: "" };
@@ -58,14 +113,15 @@ const PRIVACY_HTML = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"
 a{color:#3B82F6}p,li{color:#CDD6E4;font-size:15px}.muted{color:#8593A8;font-size:13px}</style></head>
 <body><div class="w">
 <h1>Политика конфиденциальности</h1>
-<p class="muted">Приложение «Patent imtihoni» · Обновлено: 01.10.2026</p>
+<p class="muted">Приложение «Patent imtihoni» · Обновлено: 13.10.2026</p>
 
 <p>Приложение «Patent imtihoni» помогает трудовым мигрантам готовиться к комплексному экзамену (патент) на родном языке. Мы уважаем вашу конфиденциальность и собираем минимум данных.</p>
 
 <h2>Какие данные мы обрабатываем</h2>
 <ul>
-<li><b>Анонимный идентификатор.</b> При первом запуске приложение создаёт случайный код (например, «a7f3k9»), не связанный с вашей личностью. Он один раз отправляется на наш сервер только для подсчёта числа пользователей.</li>
+<li><b>Анонимный идентификатор.</b> При первом запуске приложение создаёт случайный код (например, «a7f3k9»), не связанный с вашей личностью. Он отправляется на наш сервер только для подсчёта числа пользователей и времени использования.</li>
 <li><b>Язык и страна кода.</b> Вместе с идентификатором передаётся выбранный язык интерфейса — для статистики.</li>
+<li><b>Время использования.</b> Приложение считает, сколько минут в день оно было открыто, и вместе с анонимным идентификатором отправляет эти числа на сервер (если приложение использовалось офлайн — при следующем подключении к Интернету). Это нужно только для общей статистики.</li>
 </ul>
 
 <h2>Какие данные мы НЕ собираем</h2>
@@ -79,7 +135,7 @@ a{color:#3B82F6}p,li{color:#CDD6E4;font-size:15px}.muted{color:#8593A8;font-size
 <p>Приложению нужен доступ в Интернет только для загрузки аудиозаданий и проверки обновлений. Приложение работает и офлайн.</p>
 
 <h2>Хранение данных</h2>
-<p>Анонимный идентификатор хранится на нашем сервере исключительно для подсчёта аудитории. Он не передаётся третьим лицам.</p>
+<p>Анонимный идентификатор и время использования хранятся на нашем сервере исключительно для подсчёта аудитории. Они не передаются третьим лицам.</p>
 
 <h2>Контакты</h2>
 <p>По любым вопросам: <a href="mailto:vkholmirzaev@gmail.com">vkholmirzaev@gmail.com</a><br>Разработчики: Kholmirzaev &amp; Qodirov</p>
@@ -123,13 +179,15 @@ function computeStats() {
     const lb = langLabel(u.til); byLang[lb] = (byLang[lb] || 0) + 1;
     byDay[d] = (byDay[d] || 0) + 1;
   });
-  // oxirgi 14 kun
+  // oxirgi 14 kun (+ foydalanish vaqti)
   const days = [];
   for (let i = 13; i >= 0; i--) {
-    const t = now - i * 86400000, d = ymd(t);
-    days.push({ day: d, count: byDay[d] || 0 });
+    const t = now - i * 86400000, d = ymd(t), us = usageOfDay(d);
+    days.push({ day: d, count: byDay[d] || 0, sec: us.sec, active: us.active });
   }
-  return { total: users.length, kun, oy, byCountry, byLang, days };
+  const t = usageOfDay(today);
+  const usageToday = { sec: t.sec, active: t.active, avg: t.active ? Math.round(t.sec / t.active) : 0 };
+  return { total: users.length, kun, oy, byCountry, byLang, days, usageToday };
 }
 
 // ====== Admin autentifikatsiya (xotirada token) ======
@@ -193,9 +251,16 @@ const server = http.createServer(async (req, res) => {
     const id = String(u.searchParams.get("id") || "").trim().toLowerCase();
     const rec = users.filter((x) => String(x.uid || "").toLowerCase() === id)[0];
     if (!rec) return json(res, 200, { ok: true, topildi: false });
+    let jami = 0, faolKun = 0, oxirgi = "";
+    Object.keys(usage).forEach((d) => {
+      const s = usage[d][rec.uid];
+      if (s) { jami += s; faolKun++; if (d > oxirgi) oxirgi = d; }
+    });
+    const bugun = (usage[ymd(Date.now())] || {})[rec.uid] || 0;
     return json(res, 200, { ok: true, topildi: true, user: {
       id: rec.uid, mamlakat: rec.mamlakat || "—", til: langLabel(rec.til),
-      sana: ymd(rec.ts), vaqt: new Date(rec.ts).toLocaleString("ru-RU", { timeZone: TZ })
+      sana: ymd(rec.ts), vaqt: new Date(rec.ts).toLocaleString("ru-RU", { timeZone: TZ }),
+      bugun: fmtDur(bugun), jami: fmtDur(jami), faolKun: faolKun, oxirgi: oxirgi || "—"
     }});
   }
 
@@ -223,6 +288,15 @@ const server = http.createServer(async (req, res) => {
     if (typeof d.msg === "string") config.msg = d.msg;
     saveConfig();
     return json(res, 200, { ok: true, config: config });
+  }
+
+  // --- Ilovadan foydalanish vaqti (POST /usage) ---
+  if (p === "/usage" && req.method === "POST") {
+    const d = await readBody(req);
+    const uid = String(d.uid || "").trim().toLowerCase();
+    if (!/^[a-z0-9]{3,32}$/.test(uid)) return json(res, 400, { ok: false });
+    addUsage(uid, d.days);
+    return json(res, 200, { ok: true });
   }
 
   // --- Ilovadan ma'lumot (POST /) ---
@@ -270,6 +344,20 @@ async function poll() {
         await tg("sendMessage", { chat_id: chatId, text:
           "Assalomu alaykum! 👋\nBu — Patent ilova xabarnoma boti.\n\n" +
           "Sizning ID: " + chatId + "\n\nBu ID ni administratorga bering." });
+        continue;
+      }
+
+      if (txt.startsWith("/vaqt")) {
+        if (!isAdmin(chatId)) {
+          await tg("sendMessage", { chat_id: chatId, text: "Bu buyruq faqat administrator uchun." });
+          continue;
+        }
+        const us = usageOfDay(ymd(Date.now()));
+        await tg("sendMessage", { chat_id: chatId, text:
+          "⏱ Bugun jami foydalanish: " + fmtDur(us.sec) + "\n" +
+          "👤 Faol foydalanuvchilar: " + us.active + "\n" +
+          "📊 O'rtacha: " + fmtDur(us.active ? us.sec / us.active : 0) + "\n\n" +
+          "Oflayn ishlatganlar ma'lumoti ular internetga ulanganda qo'shiladi." });
         continue;
       }
 
