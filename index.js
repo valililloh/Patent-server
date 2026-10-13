@@ -209,6 +209,20 @@ const server = http.createServer(async (req, res) => {
   // --- Ilova uchun ochiq config (versiya tekshiruvi) ---
   if (p === "/config" && req.method === "GET") { return json(res, 200, config); }
 
+  // --- Tashxis (disk holati — ma'lumot ko'rsatilmaydi) ---
+  if (p === "/diag" && req.method === "GET") {
+    var info = {
+      DATA_DIR: DATA_DIR,
+      RAILWAY_VOLUME_MOUNT_PATH: process.env.RAILWAY_VOLUME_MOUNT_PATH || null,
+      DATA_DIR_env: process.env.DATA_DIR || null,
+      file: DATA_FILE,
+      exists: false, size_bytes: 0, users_in_memory: users.length
+    };
+    try { var st = fs.statSync(DATA_FILE); info.exists = true; info.size_bytes = st.size; } catch (e) {}
+    try { info.dir_list = fs.readdirSync(DATA_DIR); } catch (e) { info.dir_list = "ERR: " + e.message; }
+    return json(res, 200, info);
+  }
+
   // --- Admin: config o'qish/yozish ---
   if (p === "/api/config" && req.method === "GET") {
     if (!validToken(req, u)) return json(res, 401, { ok: false });
