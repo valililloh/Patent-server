@@ -33,7 +33,17 @@ let seen = new Set();  // uid lar
 try {
   if (fs.existsSync(DATA_FILE)) {
     users = JSON.parse(fs.readFileSync(DATA_FILE, "utf8") || "[]");
+    // Bir martalik tozalash: bot/skaner yaratgan "arvoh" yozuvlarni olib tashlaymiz
+    // (haqiqiy foydalanuvchida doim davlat va til bo'ladi)
+    const _before = users.length;
+    users = users.filter(function (u) {
+      if (!u || typeof u.uid !== "string" || /^anon/.test(u.uid)) return false;
+      var noCountry = (!u.mamlakat || u.mamlakat === "—");
+      var noLang = (!u.til || u.til === "—");
+      return !(noCountry && noLang);
+    });
     users.forEach((u) => seen.add(u.uid));
+    if (users.length !== _before) { try { fs.writeFileSync(DATA_FILE, JSON.stringify(users)); } catch (e) {} }
   }
 } catch (e) { users = []; seen = new Set(); }
 
@@ -228,7 +238,9 @@ const server = http.createServer(async (req, res) => {
   // --- Ilovadan ma'lumot (POST /) ---
   if (req.method === "POST") {
     const d = await readBody(req);
-    const uid = d.uid || ("anon" + Date.now());
+    const uid = d.uid || d.id;
+    // id yoki til bo'lmasa — bu haqiqiy ilova emas (bot/skaner), sanamaymiz
+    if (!uid || !d.til) { return json(res, 200, { ok: true }); }
     const raqam = d.raqam || d.id || "—", mamlakat = d.mamlakat || "—", til = d.til || "—";
     if (!seen.has(uid)) {
       seen.add(uid);
